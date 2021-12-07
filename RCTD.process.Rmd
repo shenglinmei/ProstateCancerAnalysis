@@ -1,0 +1,252 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+Prepare scRNA-seq reference datasets
+```{r}
+con=readRDS('/home/meisl/Workplace/Prostate/Oct2020/Data/conos.selected.rds')
+ano=readRDS('/home/meisl/Workplace/Prostate/Oct2020/Data/ano.OCT.2020.rds')
+allp2=readRDS('/home/meisl/Workplace/Prostate/Oct2020/Data/join.all.Sept.p2Object.rds')
+
+```
+
+
+
+```{r}
+CellSampleDwon= function(conosCluster,nsize=1000){
+  tab=conosCluster
+  sampD=NULL
+  for (i in unique(tab)){
+    tt=names(tab[tab==i])
+    if (length(tt)>nsize){
+      tt=sample(tt,nsize)
+    }
+    sampD=c(sampD,tt)
+  }
+  print(table(conosCluster[sampD]))
+  return(unique(sampD))
+}
+```
+
+```{r}
+table(ano$low.ano)
+```
+
+
+```{r}
+cell.ano = ano$low.ano
+cell.ano[grepl('CD4|CTL|Cycling T',cell.ano)]='T cells'
+
+table(cell.ano)
+```
+
+
+
+output RCTD required scRNA-seq reference 
+
+sample down to 1000 cells for each cell type
+```{r}
+cname=CellSampleDwon(cell.ano,nsize=1000)  #
+cells=ano$low.ano[cname]
+exp=t(allp2$misc$rawCounts[cname,]) # raw count matrix 
+
+
+output.scRNA.ref =  function(cells,exp,ouput){
+  uMI=Matrix::colSums(exp)  # Total UMI
+  
+  nc=unique(cells)
+  cluster=seq(length(nc))
+  names(nc)=cluster
+  
+  dat1=data.frame('Cluster'=cluster,'Name'=nc)
+  
+  index=match(cells,nc)
+  cells2=names(nc)[index]
+  names(cells2) = names(cells)
+  dat2=data.frame('barcode'=cname,'cluster'=cells2,'nUMI'=uMI)
+
+  saveRDS(exp,paste(ouput,'/dge.rds',sep=''))
+  write.csv(dat1,paste(ouput,'/cell_type_dict.csv',sep=''),row.names=F,quote=F)
+  write.csv(dat2,paste(ouput,'/meta_data.csv',sep=''),row.names=F,quote=F)
+}
+
+output.scRNA.ref(cells,exp,'/home/meisl/tools/RCTD/Example/input.slide.seq/')
+
+```
+
+
+input data format (RCTD require fixed file name)
+```{r}
+
+counts <- readRDS('/home/meisl/tools/RCTD/Example/input.slide.seq/MappedDGEForR.rds')
+beads <- read.csv('/home/meisl/tools/RCTD/Example/input.slide.seq/BeadLocationsForR.csv')
+
+counts[1:4,1:4]
+beads[1:5,]
+```
+
+
+
+run RCTD (support rds file as input)
+```{r}
+dgeToSeurat2=function (refdir) {
+  dge_file = file.path(refdir, "dge.rds")
+  raw.data= readRDS(dge_file)
+
+
+  meta_data = read.csv(file.path(refdir, "meta_data.csv"))
+  rownames(meta_data) = meta_data$barcode
+  meta_data$barcode = NULL
+  common_barcodes = intersect(colnames(raw.data), rownames(meta_data))
+  raw.data = raw.data[, common_barcodes]
+  meta_data = meta_data[common_barcodes, ]
+  cell_dict_file <- paste(refdir, "cell_type_dict.csv", sep = "/")
+  true_type_names <- RCTD:::remap_celltypes(cell_dict_file, meta_data$cluster)
+  meta_data$liger_ident_coarse = true_type_names
+  reference = Seurat::CreateSeuratObject(raw.data, meta.data = meta_data)
+  saveRDS(reference, paste(refdir, "SCRef.RDS", sep = "/"))
+  dref <- RCTD:::create_downsampled_data(reference, refdir)
+  return(dref)
+}
+
+
+read.SpatialRNA2=function (datadir, count_file = "MappedDGEForR.rds")
+{
+  coords <- readr::read_csv(file = paste(datadir, "BeadLocationsForR.csv",
+                                         sep = "/"))
+  counts <- readRDS(file = paste(datadir, count_file,
+                                 sep = "/"))
+  colnames(coords)[2] = "x"
+  colnames(coords)[3] = "y"
+  #counts = tibble::column_to_rownames(counts, var = colnames(counts)[1])
+  coords = tibble::column_to_rownames(coords, var = "barcodes")
+  coords$barcodes <- NULL
+  #counts = counts[, 2:dim(counts)[2]]
+  puck = RCTD:::SpatialRNA(coords, counts)
+  restrict_puck(puck, colnames(puck@counts))
+}
+
+
+library(RCTD)
+library(Matrix)
+```
+
+
+
+
+
+
+It may takes few hours to run RCTD. 
+
+nohup Rscript run.RCTD.R refdir datadir &
+
+```{r}
+library(RCTD)
+library(Matrix)
+
+refdir <- '/home/meisl/tools/RCTD/Example/scRNA.refernece/'
+reference <- dgeToSeurat2(refdir)
+
+
+datadir <-'/home/meisl/tools/RCTD/Example/input.slide.seq/'
+puck <- read.SpatialRNA2(datadir) #
+
+
+barcodes <- colnames(puck@counts) #pixels to be used (a list of barcode names). 
+# This list can be restricted if you want to crop the puck e.g. 
+# puck <- restrict_puck(puck, barcodes) provides a basic plot of the nUMI of each pixel
+# on the plot:
+p1=plot_puck_continuous(puck, barcodes, puck@nUMI, ylimit = c(0,round(quantile(puck@nUMI,0.9))),
+                     title ='plot of nUMI')
+
+p1
+```
+
+
+```{r}
+myRCTD <- create.RCTD(puck, reference, max_cores = 10)
+myRCTD <- run.RCTD(myRCTD, doublet_mode = TRUE)
+
+```
+
+
+
+```{r}
+myRCTD <- readRDS('/home/meisl/tools/RCTD/Example/output/result.res.rds')
+resultsdir = '/home/meisl/tools/RCTD/Example/output/'
+```
+
+```{r}
+results <- myRCTD@results
+# normalize the cell type proportions to sum to 1.
+norm_weights = sweep(results$weights, 1, Matrix::rowSums(results$weights), '/')
+cell_type_names <- myRCTD@cell_type_info$info[[2]] #list of cell type names
+spatialRNA <- myRCTD@spatialRNA
+
+# make the plots
+# Plots the confident weights for each cell type as in full_mode (saved as 
+# 'results/cell_type_weights_unthreshold.pdf')
+plot_weights(cell_type_names, spatialRNA, resultsdir, norm_weights)
+# Plots all weights for each cell type as in full_mode. (saved as 
+# 'results/cell_type_weights.pdf')
+plot_weights_unthreshold(cell_type_names, spatialRNA, resultsdir, norm_weights)
+# Plots the weights for each cell type as in doublet_mode. (saved as 
+# 'results/cell_type_weights_doublets.pdf')
+plot_weights_doublet(cell_type_names, spatialRNA, resultsdir, results$weights_doublet,
+                     results$results_df)
+# Plots the number of confident pixels of each cell type in 'full_mode'. (saved as 
+# 'results/cell_type_occur.pdf')
+plot_cond_occur(cell_type_names, resultsdir, norm_weights, spatialRNA)
+
+
+```
+
+
+
+
+
+
+
+
+
+```{r}
+plot_all_cell_types(results$results_df, spatialRNA@coords, cell_type_names, resultsdir)
+
+```
+
+
+
+# doublets
+```{r}
+
+#obtain a dataframe of only doublets
+doublets <- results$results_df[results$results_df$spot_class == "doublet_certain",]
+# Plots all doublets in space (saved as 
+# 'results/all_doublets.pdf')
+plot_doublets(spatialRNA, doublets, resultsdir, cell_type_names)
+
+
+```
+
+
+# Plots all doublets in space for each cell type (saved as 
+
+
+```{r}
+
+# 'results/all_doublets_type.pdf')
+plot_doublets_type(spatialRNA, doublets, resultsdir, cell_type_names)
+# a table of frequency of doublet pairs 
+doub_occur <- table(doublets$second_type, doublets$first_type)
+# Plots a stacked bar plot of doublet ocurrences (saved as 
+# 'results/doublet_stacked_bar.pdf')
+plot_doub_occur_stack(doub_occur, resultsdir, cell_type_names)
+
+
+```
+
+
+
+
