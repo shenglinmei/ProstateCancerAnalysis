@@ -46,6 +46,14 @@ Tutorial video:
     *   [Healthy fraction](http://pklab.med.harvard.edu/nikolas/pagoda2/frontend/current/pagodaURL/index.html?fileURL=http://pklab.med.harvard.edu/shenglin//PCA/bin/Bcell.Healthy.bin)
     
     
-    
+## Data resource:
+- scRNA-seq data raw count matrixes  [download link :arrow_up_down:](https://www.dropbox.com/s/3oimjivicpolsw7/scRNAseq.raw.counts.rds?dl=0)
+- scRNA-seq data cell annotations  [download link :arrow_up_down:](https://www.dropbox.com/s/wwogh9kn1hjduov/cell.annotation.csv?dl=0))
+- Slide-seqV2 data raw count matrixes  [download link :arrow_up_down:](https://www.dropbox.com/s/oree4qvu3d9o8hn/slide.seq.raw.counts.rds?dl=0)
+- Slide-seqV2 data cell annotations  [download link :arrow_up_down:](https://www.dropbox.com/s/9ds38nnhxeymnyn/slide.seq.ano.csv?dl=0)
+- Slide-seqV2 data beads locations  [download link :arrow_up_down:](https://www.dropbox.com/s/wrdgjoetzzblanf/slide.seq.BeadLocations.rds?dl=0)
+
+
+   
     
     
