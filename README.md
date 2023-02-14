@@ -47,9 +47,10 @@ Tutorial video:
     
     
 ## Data resource:
-- zenodo  [download link :arrow_up_down:](https://zenodo.org/record/7526696#.Y78bfOzMJTZ)
 - GSE181294  [download link :arrow_up_down:](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE181294)
-
+- scRNAseq raw count matrixes  [download link :arrow_up_down:](https://drive.google.com/file/d/1ZbGoO7AchEGs4VUNrI1KxKCsLYoazrky/view?usp=share_link)
+- scRNAseq normalized count matrixes  [download link :arrow_up_down:](https://drive.google.com/file/d/1RSCRNXPr2GZPtpGv-Aj6Y94cwxJJY1eW/view?usp=share_link)
+- scRNAseq cell annotations  [download link :arrow_up_down:](https://drive.google.com/file/d/1WuIwpuHibuR4D9hUyquJ72UYSOU_fVwx/view?usp=share_link)
    
     
     
